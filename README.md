@@ -1,4 +1,12 @@
-# fitcli — TP1 de ALPCD 2026/27
+# fitcli — TP1 de ALPCD 2026/27 · Grupo 4
+
+## Elementos do grupo
+
+| Nome | N.º de aluno | GitHub |
+|---|---|---|
+| Tiago Correia | A114093 | [PapiTii](https://github.com/PapiTii) |
+| Tomás (nome completo por confirmar) | A______ | [ifwtomaz-lab](https://github.com/ifwtomaz-lab) |
+| Cristiano (nome completo por confirmar) | A______ | [Cris1629](https://github.com/Cris1629) |
 
 CLI em Python para explorar a API pública [wger](https://wger.de/api/v2/) (exercícios, músculos, equipamento).
 Usa `requests` (pedidos à API), `re` (limpeza e análise de texto) e `typer` (a linha de comandos).
