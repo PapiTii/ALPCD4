@@ -4,6 +4,8 @@ TP1 de ALPCD 2026/27, com os módulos requests, re e typer.
 
 Uso:
     python fitcli.py top 10
+    python fitcli.py search biceps 5
+    python fitcli.py grupos              (extra: músculos e categorias válidos)
 """
 
 import html
@@ -125,6 +127,40 @@ def exercicios(filtros, maximo=None):
 
 
 # ---------------------------------------------------------------------------
+# 3. Músculos e categorias: converter o nome escrito num filtro da API
+# ---------------------------------------------------------------------------
+
+def normalizar(s):
+    """Minúsculas e só letras: "Biceps brachii" fica "bicepsbrachii"."""
+    if s is None:
+        return ""
+    return re.sub(r"[^a-z]", "", s.lower())
+
+
+def filtro_de(nome):
+    """Converte 'biceps' ou 'arms' no filtro da API ({"muscles": 1} ou {"category": 8})."""
+    alvo = normalizar(nome)
+    erro = f"'{nome}' não é um músculo nem uma categoria. Veja: python fitcli.py grupos"
+    if alvo == "":  # "123" fica vazio, e "" corresponderia a qualquer músculo
+        raise typer.BadParameter(erro)
+
+    for c in pedido("exercisecategory/")["results"]:
+        if normalizar(c["name"]) == alvo:
+            return {"category": c["id"]}
+
+    lista_musculos = pedido("muscle/", {"limit": 100})["results"]
+    for m in lista_musculos:
+        if alvo == normalizar(m["name"]) or alvo == normalizar(m["name_en"]):
+            return {"muscles": m["id"]}
+    # sem nome igual: aceita o início do nome ("pector" dá Pectoralis major)
+    for m in lista_musculos:
+        if normalizar(m["name"]).startswith(alvo) or normalizar(m["name_en"]).startswith(alvo):
+            return {"muscles": m["id"]}
+
+    raise typer.BadParameter(erro)
+
+
+# ---------------------------------------------------------------------------
 # 6. Comandos da CLI
 # ---------------------------------------------------------------------------
 
@@ -139,6 +175,39 @@ def top(n: int = typer.Argument(10, min=1, help="Quantos exercícios mostrar")):
     for ex in exercicios({"ordering": "-created"}, n):
         resultado.append(resumo(ex))
     escrever_json(resultado)
+
+
+@app.command()
+def search(
+    termo: str = typer.Argument(..., help="Músculo (biceps, chest...) ou categoria (arms, legs...)"),
+    n: int = typer.Argument(10, min=1, help="Quantos resultados mostrar"),
+    categoria: str = typer.Option(None, "--categoria", "-c", help="Juntar também uma categoria (ex.: biceps -c arms)"),
+):
+    """b) Pesquisa exercícios por músculo e/ou categoria."""
+    filtros = filtro_de(termo)
+    if categoria:
+        filtros.update(filtro_de(categoria))
+    resultado = []
+    for ex in exercicios(filtros, n):
+        resultado.append(resumo(ex))
+    if len(resultado) == 0:  # a mensagem vai para o stderr, para não estragar o JSON
+        typer.echo(f"Sem resultados para '{termo}'.", err=True)
+    escrever_json(resultado)
+
+
+@app.command()
+def grupos():
+    """Extra: mostra os músculos e as categorias que se podem usar."""
+    categorias = []
+    for c in pedido("exercisecategory/")["results"]:
+        categorias.append(c["name"].lower())
+    nomes_musculos = []
+    for m in pedido("muscle/", {"limit": 100})["results"]:
+        if m["name_en"]:
+            nomes_musculos.append(m["name_en"].lower())
+        else:
+            nomes_musculos.append(m["name"].lower())
+    escrever_json({"categorias": categorias, "musculos": nomes_musculos})
 
 
 if __name__ == "__main__":

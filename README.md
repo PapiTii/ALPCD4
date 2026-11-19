@@ -22,6 +22,9 @@ pip install -r requirements.txt
 | Alínea | Comando | O que faz |
 |---|---|---|
 | a) | `python fitcli.py top 10` | Os 10 exercícios mais recentes (nome, categoria, equipamento, músculos), em JSON |
+| b) | `python fitcli.py search biceps 5` | Exercícios de um músculo **ou** de uma categoria |
+| b) | `python fitcli.py search biceps 5 -c arms` | Músculo **e** categoria ao mesmo tempo |
+| extra | `python fitcli.py grupos` | Lista os músculos e as categorias aceites |
 
 `python fitcli.py --help` e `python fitcli.py <comando> --help` mostram a ajuda.
 
