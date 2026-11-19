@@ -24,6 +24,7 @@ pip install -r requirements.txt
 | a) | `python fitcli.py top 10` | Os 10 exercícios mais recentes (nome, categoria, equipamento, músculos), em JSON |
 | b) | `python fitcli.py search biceps 5` | Exercícios de um músculo **ou** de uma categoria |
 | b) | `python fitcli.py search biceps 5 -c arms` | Músculo **e** categoria ao mesmo tempo |
+| c) | `python fitcli.py type 91` | Tipo de esforço: `compound`, `isolated`, `cardio` ou `other` |
 | extra | `python fitcli.py grupos` | Lista os músculos e as categorias aceites |
 
 `python fitcli.py --help` e `python fitcli.py <comando> --help` mostram a ajuda.
@@ -34,3 +35,10 @@ pip install -r requirements.txt
 - O código de estado é verificado: um 404 e os outros erros dão uma mensagem clara, sem rebentar o programa.
 - Paginação: segue-se o campo `next` até ao fim, mas só enquanto são precisos mais resultados.
 - `language=2` (inglês), e ignoram-se os exercícios que não têm tradução inglesa.
+
+## Como o `type` decide
+
+Não há tipo de esforço na API, por isso é inferido com expressões regulares, por esta ordem:
+categoria Cardio ou palavra de cardio no nome → `cardio`; alongamento, yoga ou posição estática → `other`;
+palavra de exercício isolado (curl, raise, extension…) → `isolated`; palavra de composto (squat, press, row…) → `compound`;
+depois o número de músculos (3 ou mais → `compound`, 1 → `isolated`); por fim as mesmas palavras na descrição.

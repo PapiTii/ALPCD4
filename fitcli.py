@@ -6,6 +6,7 @@ Uso:
     python fitcli.py top 10
     python fitcli.py search biceps 5
     python fitcli.py grupos              (extra: músculos e categorias válidos)
+    python fitcli.py type 91
 """
 
 import html
@@ -161,6 +162,65 @@ def filtro_de(nome):
 
 
 # ---------------------------------------------------------------------------
+# 4. Tipo de esforço (alínea c)
+# ---------------------------------------------------------------------------
+
+# Palavras que indicam o tipo de exercício, procuradas no nome e na descrição.
+# \b = fronteira de palavra; s? = plural opcional; (?:...) = grupo sem captura;
+# \w*curls? também apanha o curl colado a outra palavra ("Hammercurls").
+CARDIO = re.compile(r"\b(?:run(?:ning)?|jog(?:ging)?|sprint|cycl(?:e|ing)|bike|row(?:ing)? machine|"
+                    r"jump(?:ing)? jacks?|burpees?|skipping|jump rope|treadmill|elliptical|swim(?:ming)?)\b", re.I)
+COMPOSTO = re.compile(r"\b(?:squats?|deadlifts?|bench press|press(?:es)?|rows?|pull[- ]?ups?|chin[- ]?ups?|"
+                      r"push[- ]?ups?|dips?|lunges?|cleans?|snatch|thrusters?|step[- ]?ups?|hip thrusts?|swings?|"
+                      r"pull[- ]?downs?|high pulls?|ohp|good mornings?|roll[- ]?outs?)\b", re.I)
+ISOLADO = re.compile(r"\b(?:\w*curls?|raises?|fl(?:y|ies|yes)|extensions?|kickbacks?|shrugs?|crunch(?:es)?|"
+                     r"pull[- ]?overs?|pushdowns?|calf|wrist|butterfly|pec deck|triceps? press|skull ?crushers?)\b", re.I)
+# Alongamentos, yoga e posições paradas não são treino de força: ficam em "other".
+OUTRO = re.compile(r"\b(?:stretch(?:es|ing)?|yoga|mobility|holds?|circles?)\b", re.I)
+
+
+def tipo_esforco(ex):
+    """compound / isolated / cardio / other, por esta ordem de regras:
+
+    1. categoria Cardio, ou palavra de cardio no nome -> cardio
+    2. alongamento, yoga ou posição parada no nome -> other
+    3. palavra de exercício isolado no NOME -> isolated  (ex.: "Leg Curl", "Calf Press")
+    4. palavra de exercício composto no NOME -> compound (ex.: "Barbell Row")
+    5. 3 ou mais músculos -> compound (mexe várias articulações)
+    6. 1 só músculo -> isolated
+    7. as mesmas palavras, mas na descrição
+    8. nada disto -> other
+    O nome e o número de músculos vêm antes da descrição porque são mais
+    fiáveis: "press" ou "row" aparecem em frases normais das descrições.
+    Por isso a descrição só decide quando o exercício tem 0 ou 2 músculos.
+    """
+    t = traducao_inglesa(ex)
+    nome = t["name"]
+    descricao = limpar_html(t["description"])
+    n_musculos = len(ex["muscles"]) + len(ex["muscles_secondary"])
+
+    if ex["category"]["name"] == "Cardio" or CARDIO.search(nome):
+        return "cardio"
+    if OUTRO.search(nome):
+        return "other"
+    if ISOLADO.search(nome):
+        return "isolated"
+    if COMPOSTO.search(nome):
+        return "compound"
+    if n_musculos >= 3:
+        return "compound"
+    if n_musculos == 1:
+        return "isolated"
+    if CARDIO.search(descricao):
+        return "cardio"
+    if COMPOSTO.search(descricao):
+        return "compound"
+    if ISOLADO.search(descricao):
+        return "isolated"
+    return "other"
+
+
+# ---------------------------------------------------------------------------
 # 6. Comandos da CLI
 # ---------------------------------------------------------------------------
 
@@ -193,6 +253,16 @@ def search(
     if len(resultado) == 0:  # a mensagem vai para o stderr, para não estragar o JSON
         typer.echo(f"Sem resultados para '{termo}'.", err=True)
     escrever_json(resultado)
+
+
+@app.command("type")
+def tipo(exercise_id: int = typer.Argument(..., help="O id do exercício (ver no 'top' ou no 'search')")):
+    """c) Tipo de esforço de um exercício: compound, isolated, cardio ou other."""
+    ex = pedido(f"exerciseinfo/{exercise_id}/")
+    if traducao_inglesa(ex) is None:
+        typer.echo("Este exercício não tem versão em inglês.", err=True)
+        raise typer.Exit(1)
+    typer.echo(tipo_esforco(ex))
 
 
 @app.command()
