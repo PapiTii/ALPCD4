@@ -26,6 +26,7 @@ pip install -r requirements.txt
 | b) | `python fitcli.py search biceps 5 -c arms` | Músculo **e** categoria ao mesmo tempo |
 | c) | `python fitcli.py type 91` | Tipo de esforço: `compound`, `isolated`, `cardio` ou `other` |
 | d) | `python fitcli.py equipment chest` | Menções a equipamento nas descrições de uma categoria, da mais frequente para a menos |
+| e) | `python fitcli.py workout biceps,back compound 5` | Plano de treino por grupo muscular |
 | extra | `python fitcli.py grupos` | Lista os músculos e as categorias aceites |
 
 `python fitcli.py --help` e `python fitcli.py <comando> --help` mostram a ajuda.
