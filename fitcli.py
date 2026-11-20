@@ -7,6 +7,7 @@ Uso:
     python fitcli.py search biceps 5
     python fitcli.py grupos              (extra: músculos e categorias válidos)
     python fitcli.py type 91
+    python fitcli.py equipment chest
 """
 
 import html
@@ -221,6 +222,48 @@ def tipo_esforco(ex):
 
 
 # ---------------------------------------------------------------------------
+# 5. Equipamento nas descrições (alínea d)
+# ---------------------------------------------------------------------------
+
+EQUIPAMENTO = {
+    "barbell": r"\bbarbells?\b",
+    "dumbbell": r"\bdumbbells?\b",
+    "cable": r"\bcables?\b",
+    "machine": r"\bmachines?\b",
+    "bodyweight": r"\bbody[- ]?weight\b",
+    "kettlebell": r"\bkettlebells?\b",
+    "bench": r"\bbench(?:es)?\b",
+    "band": r"\b(?:resistance )?bands?\b",
+    "ball": r"\b(?:swiss|exercise|stability|medicine) balls?\b",  # não conta "ball of the foot"
+    "pull-up bar": r"\bpull[- ]?up bars?\b",
+    "bar": r"\b(?:ez[- ]?)?bars?\b",  # "bar" e "EZ bar"
+    "plate": r"\bplates?\b",
+    "rope": r"\bropes?\b",
+    "roller": r"\brollers?\b",
+    "mat": r"\bmats?\b",
+}
+
+
+def contar_equipamento(textos):
+    """Conta as menções a cada equipamento e ordena da mais frequente para a menos."""
+    contagem = {}
+    for nome in EQUIPAMENTO:
+        contagem[nome] = 0
+    for texto in textos:
+        for nome, padrao in EQUIPAMENTO.items():
+            contagem[nome] += len(re.findall(padrao, texto, re.I))
+    # cada "pull-up bar" também foi contado em "bar", por isso tira-se outra vez
+    contagem["bar"] -= contagem["pull-up bar"]
+
+    ordenado = sorted(contagem.items(), key=lambda par: par[1], reverse=True)
+    resultado = []
+    for nome, n in ordenado:
+        if n > 0:
+            resultado.append({nome: n})
+    return resultado
+
+
+# ---------------------------------------------------------------------------
 # 6. Comandos da CLI
 # ---------------------------------------------------------------------------
 
@@ -263,6 +306,18 @@ def tipo(exercise_id: int = typer.Argument(..., help="O id do exercício (ver no
         typer.echo("Este exercício não tem versão em inglês.", err=True)
         raise typer.Exit(1)
     typer.echo(tipo_esforco(ex))
+
+
+@app.command()
+def equipment(categoria: str = typer.Argument(..., help="Categoria (abs, arms, back, calves, cardio, chest, legs, shoulders)")):
+    """d) Conta as menções a equipamento nas descrições de uma categoria."""
+    filtros = filtro_de(categoria)
+    if "category" not in filtros:
+        raise typer.BadParameter(f"'{categoria}' é um músculo; aqui é preciso uma categoria.")
+    textos = []
+    for ex in exercicios(filtros):
+        textos.append(limpar_html(traducao_inglesa(ex)["description"]))
+    escrever_json(contar_equipamento(textos))
 
 
 @app.command()
