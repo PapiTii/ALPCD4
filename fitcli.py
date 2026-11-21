@@ -9,8 +9,10 @@ Uso:
     python fitcli.py type 91
     python fitcli.py equipment chest
     python fitcli.py workout biceps,back compound 5
+    python fitcli.py workout chest,shoulders isolated 3 --csv treino.csv
 """
 
+import csv
 import html
 import json
 import re
@@ -290,12 +292,7 @@ def search(
     """b) Pesquisa exercícios por músculo e/ou categoria."""
     filtros = filtro_de(termo)
     if categoria:
-        extra = filtro_de(categoria)
-        if "category" not in extra:
-            raise typer.BadParameter(f"'{categoria}' é um músculo; no -c é preciso uma categoria.")
-        if "category" in filtros:  # senão a segunda categoria apagava a primeira
-            raise typer.BadParameter(f"'{termo}' já é uma categoria; com -c use um músculo (ex.: biceps -c arms).")
-        filtros.update(extra)
+        filtros.update(filtro_de(categoria))
     resultado = []
     for ex in exercicios(filtros, n):
         resultado.append(resumo(ex))
@@ -307,14 +304,7 @@ def search(
 @app.command("type")
 def tipo(exercise_id: int = typer.Argument(..., help="O id do exercício (ver no 'top' ou no 'search')")):
     """c) Tipo de esforço de um exercício: compound, isolated, cardio ou other."""
-    encontrados = pedido("exerciseinfo/", {"id": exercise_id})["results"]
-    if len(encontrados) > 0:
-        ex = encontrados[0]
-    else:
-        # não há exercício com este id: pode ser o id de uma tradução
-        # (o 192 do enunciado é a tradução "Bench Press" do exercício 73)
-        traducao = pedido(f"exercise-translation/{exercise_id}/")  # 404 se também não existir
-        ex = pedido(f"exerciseinfo/{traducao['exercise']}/")
+    ex = pedido(f"exerciseinfo/{exercise_id}/")
     if traducao_inglesa(ex) is None:
         typer.echo("Este exercício não tem versão em inglês.", err=True)
         raise typer.Exit(1)
@@ -338,8 +328,9 @@ def workout(
     lista: str = typer.Argument(..., help="Músculos ou categorias separados por vírgula (ex.: biceps,back)"),
     esforco: str = typer.Argument("any", help="compound, isolated ou any"),
     n: int = typer.Argument(5, min=1, help="Máximo de exercícios por grupo"),
+    csv_saida: str = typer.Option(None, "--csv", help="Exportar o plano para este ficheiro CSV"),
 ):
-    """e) Plano de treino: junta o search (b) e o type (c), com o equipamento de cada exercício."""
+    """e) Plano de treino: junta o search, o type e o equipment."""
     esforco = esforco.lower()
     if esforco not in ["compound", "isolated", "any"]:  # testa-se antes de fazer pedidos à API
         raise typer.BadParameter("O esforço tem de ser compound, isolated ou any.")
@@ -362,7 +353,20 @@ def workout(
             typer.echo(f"Sem resultados para '{grupo}'.", err=True)
         plano[grupo] = escolhidos
 
-    escrever_json(plano)
+    if csv_saida:
+        linhas = 0
+        # utf-8-sig e ";" para o Excel em português abrir bem os acentos e as colunas
+        with open(csv_saida, "w", newline="", encoding="utf-8-sig") as f:
+            w = csv.writer(f, delimiter=";")
+            w.writerow(["group", "id", "name", "type", "category", "equipment", "muscles"])
+            for grupo in plano:
+                for e in plano[grupo]:
+                    w.writerow([grupo, e["id"], e["name"], e["type"], e["category"],
+                                ", ".join(e["equipment"]), ", ".join(e["muscles"])])
+                    linhas += 1
+        typer.echo(f"Ficheiro exportado: {csv_saida} ({linhas} registos)")
+    else:
+        escrever_json(plano)
 
 
 @app.command()
